@@ -1,9 +1,12 @@
+# -*- coding: utf-8 -*-
 import xml.etree.ElementTree as ET
 import nltk
 import cv2
 import numpy as np
+import json
 from pymorphy import get_morph
 morph = get_morph('K:\databases\BAR\pymorfy')
+USE_PREDEFINED_FILE = True
 
 class StatModel(object):
     def load(self, fn):
@@ -38,58 +41,77 @@ positive_reviews = []
 negative_reviews = []
 i = 0 # percent
 
-for row in root.iter('row'):
-    book = []
-    for child in row:
-        book.append(child.text)
-    books.append( book )
+if not USE_PREDEFINED_FILE:
+    for row in root.iter('row'):
+        book = []
+        for child in row:
+            book.append(child.text)
+        books.append( book )
+    print("reading ended")
 
-# sentence = books[10][4]
-# sentence = sentence.replace('\\n', ' ')
-# tokens = nltk.word_tokenize(sentence)
-# oneWord = morph.get_graminfo(tokens[1].upper())[0];
+    # sentence = books[10][4]
+    # sentence = sentence.replace('\\n', ' ')
+    # tokens = nltk.word_tokenize(sentence)
+    # oneWord = morph.get_graminfo(tokens[1].upper())[0];
 
-# print(oneWord['norm'])
-# print(oneWord['class'])
-# print(oneWord['info'])
-# print(oneWord['method'])
-# print( len(books) )
+    # print(oneWord['norm'])
+    # print(oneWord['class'])
+    # print(oneWord['info'])
+    # print(oneWord['method'])
+    # print( len(books) )
 
-#creating all features vector
-for index, book in enumerate(books):
-    # print(book[0])
-    sentence = book[4]
-    if not sentence:
-        print( 'not found: ', index )
-        continue
-    sentence = sentence.replace('\\n', ' ')
-    tokens = nltk.word_tokenize(sentence)
-    for token in tokens:
+    #creating all features vector
+    for index, book in enumerate(books):
+        # print(book[0])
+        sentence = book[4]
+        if not sentence:
+            print( 'not found: ', index )
+            continue
+        sentence = sentence.replace('\\n', ' ')
+        tokens = nltk.word_tokenize(sentence)
         token_arr = []
-        #delete too short items
-        if len(token) < 4:
-            continue
-        vec_el = morph.get_graminfo(token.upper());
-        if not vec_el:
-            continue
-        else:
-            vec_norm = vec_el[0]['norm']
-            #adding it to books
-            token_arr.append(vec_norm)
-        if vec_el not in unique_vector:
-            unique_vector.append(vec_norm)
-            unique_vector_structure.append(vec_el[0])
-    books[index].append( token_arr )
+        for token in tokens:
+            #delete too short items
+            if len(token) < 4:
+                continue
+            vec_el = morph.get_graminfo(token.upper())
+            if not vec_el:
+                continue
+            else:
+                vec_norm = vec_el[0]['norm']
+                #adding it to books
+                token_arr.append(vec_norm)
+            if vec_norm not in unique_vector:
+                unique_vector.append(vec_norm)
+                unique_vector_structure.append(vec_el[0])
+        books[index].append( token_arr )
+    print("feature vector created")
+    f = open("data.txt", "w")
+    json.dump(books, f)
+    f.close()
 
-#creating train and test vector
+    #let's write a file
+    f = open('unique_vector.txt', 'w')
+    json.dump(unique_vector, f)
+    f.close()
+    # for item in unique_vector:
+    #     # f.write("%s\n" % item.encode('utf8'))
+    #     f.write("%s\n" % item)
 
-print(unique_vector[201])
+else:
+    with open("data.txt") as f:
+        books = json.load(f)
+    f.close()
+    with open('unique_vector.txt') as ff:
+        # unique_vector = f.readlines()
+        unique_vector = json.load(ff)
+    ff.close()
+    # for index, u_vec in enumerate(unique_vector):
+    #     unique_vector[index] = u_vec.decode("utf8")
+
+print(unique_vector[len(unique_vector)-1])
 print( len(unique_vector) )
-#let's write a file
-f = open('unique_vector.txt', 'w')
-# pickle.dump(unique_vector, f)
-for item in unique_vector:
-  f.write("%s\n" % item.encode('utf8'))
+
 
 
 
@@ -126,10 +148,12 @@ for book in books:
         #     ind = unique_vector.index(vec_el)
         #     reviews_all[ len(reviews_all)-1 ][ind] = 1.0
         if token in unique_vector:
-            ind = unique_vector.index(vec_el)
+            ind = unique_vector.index(token)
             reviews_all[ len(reviews_all)-1 ][ind] = 1.0
 
-print(reviews_cat)
+print(books[5][5])
+print("start train")
+print(reviews_cat[:100])
 # print(reviews_all[3])
 #Machine Learning
 # classifier = cv2.NormalBayesClassifier()
