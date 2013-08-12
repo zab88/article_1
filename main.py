@@ -7,6 +7,9 @@ import json
 from pymorphy import get_morph
 morph = get_morph('K:\databases\BAR\pymorfy')
 USE_PREDEFINED_FILE = True
+# USE_PREDEFINED_FILE = False
+# USE_BIGRAMM_MODEL = False
+USE_BIGRAMM_MODEL = True
 
 class StatModel(object):
     def load(self, fn):
@@ -36,6 +39,7 @@ root = tree.getroot()
 books = []
 book_morph = []
 unique_vector = []
+unique_vector2 = []
 unique_vector_structure = []
 positive_reviews = []
 negative_reviews = []
@@ -70,7 +74,8 @@ if not USE_PREDEFINED_FILE:
         sentence = sentence.replace('\\n', ' ')
         tokens = nltk.word_tokenize(sentence)
         token_arr = []
-        for token in tokens:
+        token_arr_bi = []
+        for i,token in enumerate(tokens):
             #delete too short items
             if len(token) < 4:
                 continue
@@ -81,10 +86,18 @@ if not USE_PREDEFINED_FILE:
                 vec_norm = vec_el[0]['norm']
                 #adding it to books
                 token_arr.append(vec_norm)
+                #push vec2
+                if len(token_arr)>1 and tokens[i-1] is not None:
+                    bi = token_arr[ len(token_arr)-2 ] + ' ' + token_arr[ len(token_arr)-1 ]
+                    token_arr_bi.append(bi)
+                    if bi not in unique_vector2:
+                        unique_vector2.append(bi)
             if vec_norm not in unique_vector:
                 unique_vector.append(vec_norm)
                 unique_vector_structure.append(vec_el[0])
+
         books[index].append( token_arr )
+        books[index].append( token_arr_bi )
     print("feature vector created")
     f = open("data.txt", "w")
     json.dump(books, f)
@@ -93,6 +106,10 @@ if not USE_PREDEFINED_FILE:
     #let's write a file
     f = open('unique_vector.txt', 'w')
     json.dump(unique_vector, f)
+    f.close()
+
+    f = open('unique_vector2.txt', 'w')
+    json.dump(unique_vector2, f)
     f.close()
     # for item in unique_vector:
     #     # f.write("%s\n" % item.encode('utf8'))
@@ -106,12 +123,17 @@ else:
         # unique_vector = f.readlines()
         unique_vector = json.load(ff)
     ff.close()
+    with open('unique_vector2.txt') as ff:
+        # unique_vector = f.readlines()
+        unique_vector2 = json.load(ff)
+    ff.close()
     # for index, u_vec in enumerate(unique_vector):
     #     unique_vector[index] = u_vec.decode("utf8")
 
-print(unique_vector[len(unique_vector)-1])
+#print(unique_vector[len(unique_vector)-1])
 print( len(unique_vector) )
-
+print( len(unique_vector2) )
+# exit()
 
 
 
@@ -119,6 +141,8 @@ reviews_all = []
 reviews_cat = []
 
 #second bypass
+if USE_BIGRAMM_MODEL is True:
+    unique_vector = unique_vector + unique_vector2
 for book in books:
     sentence = book[4]
     if not sentence:
@@ -129,12 +153,17 @@ for book in books:
         reviews_cat.append(0)
 
     #tokens = nltk.word_tokenize(sentence)
-    tokens = book[5]
+    if USE_BIGRAMM_MODEL is True:
+        tokens = book[5] + book[6]
+    else:
+        tokens = book[5]
+    # tokens_bi = book[6]
 
     #creating feature vector
+    #reviews_all.append( [0.0 for x in range( len(unique_vector) )] )
     reviews_all.append( [0.0 for x in range( len(unique_vector) )] )
     #filling with features
-    for token in tokens:
+    for index, token in enumerate(tokens):
         #delete too short items
         # if len(token) < 4:
         #     continue
@@ -152,17 +181,18 @@ for book in books:
             reviews_all[ len(reviews_all)-1 ][ind] = 1.0
 
 print(books[5][5])
+print(books[5][6])
 print("start train")
 print(reviews_cat[:100])
 # print(reviews_all[3])
 #Machine Learning
 # classifier = cv2.NormalBayesClassifier()
 # classifier.train( np.asarray(reviews_all, dtype=np.float32), np.asarray(reviews_cat, dtype=np.float32))
-reviews_cat_test = reviews_cat[:100]
-reviews_cat_train = reviews_cat[100:]
+reviews_cat_test = reviews_cat[-100:]
+reviews_cat_train = reviews_cat[:-100]
 
-reviews_all_test = reviews_all[:100]
-reviews_all_train = reviews_all[100:]
+reviews_all_test = reviews_all[-100:]
+reviews_all_train = reviews_all[:-100]
 
 classifier = SVM2()
 classifier.train( np.asarray(reviews_all_train, dtype=np.float32), np.asarray(reviews_cat_train, dtype=np.float32))
