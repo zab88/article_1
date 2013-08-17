@@ -8,8 +8,8 @@ from pymorphy import get_morph
 morph = get_morph('K:\databases\BAR\pymorfy')
 USE_PREDEFINED_FILE = True
 # USE_PREDEFINED_FILE = False
-# USE_BIGRAMM_MODEL = False
-USE_BIGRAMM_MODEL = True
+USE_BIGRAMM_MODEL = False
+# USE_BIGRAMM_MODEL = True
 
 class StatModel(object):
     def load(self, fn):
@@ -31,6 +31,16 @@ class SVM2(StatModel):
 
     def predict(self, samples):
         return np.float32( [self.model.predict(s) for s in samples])
+
+def get_measures(true_positives, false_positives, false_negatives):
+    if (true_positives + false_negatives) == 0:
+        return None, None, None
+    if (true_positives + false_positives) == 0:
+        return None, None, None
+    Precision = np.float32(true_positives)/np.float32(true_positives+false_positives)
+    Recall = np.float32(true_positives)/np.float32(true_positives+false_negatives)
+    F1 = 2.0 * Precision * Recall / (Precision + Recall)
+    return Precision, Recall, F1
 
 
 tree = ET.parse('imhonet-books-short.xml')
@@ -75,6 +85,7 @@ if not USE_PREDEFINED_FILE:
         tokens = nltk.word_tokenize(sentence)
         token_arr = []
         token_arr_bi = []
+        part_of_speech = []
         for i,token in enumerate(tokens):
             #delete too short items
             if len(token) < 4:
@@ -89,6 +100,7 @@ if not USE_PREDEFINED_FILE:
                 #push vec2
                 if len(token_arr)>1 and tokens[i-1] is not None:
                     bi = token_arr[ len(token_arr)-2 ] + ' ' + token_arr[ len(token_arr)-1 ]
+                    bi_pof = vec_el[0]['class']
                     token_arr_bi.append(bi)
                     if bi not in unique_vector2:
                         unique_vector2.append(bi)
@@ -209,8 +221,24 @@ print(predicted)
 #         i=i+1
 
 # i = 0
+
+true_positives = 0
+true_negatives = 0
+false_positives = 0
+false_negatives = 0
 for index, el in enumerate(predicted):
     if el == reviews_cat_test[index]:
         i = i+1
+        if el == 1:
+            true_positives += 1
+        else:
+            false_positives += 1
+    else:
+        if el == 0:
+            true_negatives += 1
+        else:
+            false_negatives += 1
 
+precision, recall, f1 = get_measures(true_positives, false_positives, false_negatives)
 print(i, '%')
+print(precision, recall, f1)
